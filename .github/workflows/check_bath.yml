@@ -1,11 +1,12 @@
 name: Ice Bath Monitor
 
 on:
-  push:             # <--- ADD THIS
+  push:
     branches:
-      - main        # <--- AND THIS (Or 'master' if your branch is named master)
+      - main
   schedule:
-    - cron: '*/10 * * * *'
+    # Run on minutes 7, 17, 27, 37, 47, 57 (Avoiding the :00 and :10 spikes)
+    - cron: '7,17,27,37,47,57 * * * *'
   workflow_dispatch:
 
 jobs:
