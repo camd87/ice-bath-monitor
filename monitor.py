@@ -42,10 +42,9 @@ def send_alert(message):
                   headers={"Title": "Ice Bath Alert", "Priority": "high"})
 
 def get_device_status(openapi, device_id, name):
-    """Fetches status using the v2.0 Shadow Endpoint to find hidden Flow Rate."""
+    """Fetches status using the v2.0 Shadow Endpoint."""
     
-    # UPDATED: We use the v2.0 'Shadow' endpoint which you proved works
-    # We explicitly ask for the specific codes: flow_water, temp_current_f, and sw_water
+    # We ask for flow_water, temp_current_f, and sw_water
     url = f'/v2.0/cloud/thing/{device_id}/shadow/properties?codes=flow_water,temp_current_f,sw_water'
     
     response = openapi.get(url)
@@ -56,10 +55,9 @@ def get_device_status(openapi, device_id, name):
 
     flow_rate = 0.0
     water_temp = 0.0
-    pump_status = "Unknown"
+    manual_switch = False
 
-    # The v2.0 structure is slightly deeper: result -> properties
-    # We use .get() to avoid crashing if 'properties' is missing
+    # Safe parsing
     properties = response.get('result', {}).get('properties', [])
 
     print(f"--- Raw Data for {name} ---") 
@@ -67,38 +65,38 @@ def get_device_status(openapi, device_id, name):
         val = item['value']
         code = item['code']
         
-        # FLOW CHECK
         if code == 'flow_water':
             flow_rate = val / 10.0
-            print(f"   Found Flow: {flow_rate}")
-
-        # TEMP CHECK (Using the F value since that is what v2.0 returns)
         elif code == 'temp_current_f':
             f_temp = val / 10.0
-            # Convert F to C
             water_temp = (f_temp - 32) * 5/9
-            print(f"   Found Temp: {f_temp}F -> {water_temp:.1f}C")
-
-        # PUMP CHECK
         elif code == 'sw_water':
-            pump_status = "ON" if val else "OFF"
-            print(f"   Found Pump: {pump_status}")
+            manual_switch = bool(val)
 
-    print(f"   > Summary: Flow={flow_rate}L, Temp={water_temp:.1f}°C, Pump={pump_status}\n")
+    # INTELLIGENT PUMP LOGIC
+    # If flow is detected (> 1.0), the pump is ON, regardless of the switch.
+    if flow_rate > 1.0:
+        pump_display = "ON (Active Flow)"
+    elif manual_switch:
+        pump_display = "ON (Switch)"
+    else:
+        pump_display = "OFF"
+
+    print(f"   > Summary: Flow={flow_rate}L, Temp={water_temp:.1f}°C, Pump={pump_display}\n")
 
     issues = []
     
     # RULE 1: LOW FLOW
     if flow_rate < MIN_FLOW:
-        # If flow is 0, we check if the pump is ON. If pump is OFF, maybe ignore?
-        # For now, we report "Pump Off?" if flow is 0
+        # If flow is exactly 0, it usually means the machine is off/standby.
+        # If you only want alerts when it breaks (but is supposed to be on),
+        # you might want to only alert if flow is between 0.1 and 19.
         if flow_rate == 0:
             issues.append(f"{name}: No Flow (Pump Off?)")
         else:
             issues.append(f"{name}: Low Flow ({flow_rate}L)")
     
     # RULE 2: HIGH TEMP
-    # We only alert if temp > 0 to avoid false alerts on read errors
     if water_temp > MAX_TEMP and water_temp > 0:
         issues.append(f"{name}: High Temp ({water_temp:.1f}°C)")
 
