@@ -35,62 +35,71 @@ def should_run_check():
     return False
 
 def send_alert(message):
-    """Sends a push notification to your phone via ntfy.sh"""
+    """Sends a push notification via ntfy.sh"""
     print(f"🚨 SENDING ALERT: {message}")
-    # FIXED: Removed Emoji from 'Title' header to prevent Unicode Error
     requests.post(f"https://ntfy.sh/{NTFY_TOPIC}", 
                   data=message.encode(encoding='utf-8'),
                   headers={"Title": "Ice Bath Alert", "Priority": "high"})
 
 def get_device_status(openapi, device_id, name):
-    """Fetches status for a single device and returns any issues found."""
-    # We use the 'functions' endpoint sometimes if status is empty, but let's stick to status first
-    response = openapi.get(f'/v1.0/devices/{device_id}/status')
+    """Fetches status using the v2.0 Shadow Endpoint to find hidden Flow Rate."""
+    
+    # UPDATED: We use the v2.0 'Shadow' endpoint which you proved works
+    # We explicitly ask for the specific codes: flow_water, temp_current_f, and sw_water
+    url = f'/v2.0/cloud/thing/{device_id}/shadow/properties?codes=flow_water,temp_current_f,sw_water'
+    
+    response = openapi.get(url)
     
     if not response.get('success'):
+        print(f"Error for {name}: {response.get('msg')}")
         return [f"{name}: Connection Error ❌"]
 
     flow_rate = 0.0
     water_temp = 0.0
     pump_status = "Unknown"
 
-    print(f"--- Raw Data for {name} ---") # Debug print to help us see what we get
-    for item in response['result']:
+    # The v2.0 structure is slightly deeper: result -> properties
+    # We use .get() to avoid crashing if 'properties' is missing
+    properties = response.get('result', {}).get('properties', [])
+
+    print(f"--- Raw Data for {name} ---") 
+    for item in properties:
         val = item['value']
         code = item['code']
         
-        # FLOW CHECK (Checking multiple potential names)
-        if code in ['flow_water', '102', 'flow_rate']:
+        # FLOW CHECK
+        if code == 'flow_water':
             flow_rate = val / 10.0
-            print(f"   Found Flow ({code}): {flow_rate}")
+            print(f"   Found Flow: {flow_rate}")
 
-        # TEMP CHECK (Checking multiple potential names)
-        # We prefer temp_top_f (C), but will fall back to temp_current_f (F) if needed
-        elif code in ['temp_top_f', '114']:
-            water_temp = val / 10.0
-            print(f"   Found Temp C ({code}): {water_temp}")
-        elif code in ['temp_current_f', '29'] and water_temp == 0:
-            # If we haven't found Celsius yet, use this and convert F to C
-            # temp_current_f is usually raw F (e.g. 755 = 75.5F)
+        # TEMP CHECK (Using the F value since that is what v2.0 returns)
+        elif code == 'temp_current_f':
             f_temp = val / 10.0
+            # Convert F to C
             water_temp = (f_temp - 32) * 5/9
-            print(f"   Found Temp F ({code}): {f_temp}F -> {water_temp:.1f}C")
+            print(f"   Found Temp: {f_temp}F -> {water_temp:.1f}C")
 
         # PUMP CHECK
-        elif code in ['sw_water', '125']:
+        elif code == 'sw_water':
             pump_status = "ON" if val else "OFF"
+            print(f"   Found Pump: {pump_status}")
 
     print(f"   > Summary: Flow={flow_rate}L, Temp={water_temp:.1f}°C, Pump={pump_status}\n")
 
     issues = []
-    # Alert Logic
+    
+    # RULE 1: LOW FLOW
     if flow_rate < MIN_FLOW:
+        # If flow is 0, we check if the pump is ON. If pump is OFF, maybe ignore?
+        # For now, we report "Pump Off?" if flow is 0
         if flow_rate == 0:
             issues.append(f"{name}: No Flow (Pump Off?)")
         else:
             issues.append(f"{name}: Low Flow ({flow_rate}L)")
     
-    if water_temp > MAX_TEMP and water_temp > 0: # Ensure we don't alert on 0.0 reading error
+    # RULE 2: HIGH TEMP
+    # We only alert if temp > 0 to avoid false alerts on read errors
+    if water_temp > MAX_TEMP and water_temp > 0:
         issues.append(f"{name}: High Temp ({water_temp:.1f}°C)")
 
     return issues
@@ -98,7 +107,6 @@ def get_device_status(openapi, device_id, name):
 def main():
     print("--- Starting Ice Bath Check ---")
     
-    # Bypass time check for testing if you want, otherwise keep it:
     if not should_run_check():
         print("💤 Outside monitoring hours. Skipping check.")
         return
