@@ -1,0 +1,31 @@
+name: Ice Bath Monitor
+
+on:
+  schedule:
+    # Runs every 10 minutes
+    - cron: '*/10 * * * *'
+  workflow_dispatch: # Allows you to run it manually to test
+
+jobs:
+  check-status:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.9'
+
+    - name: Install dependencies
+      run: |
+        pip install -r requirements.txt
+
+    - name: Run Monitor
+      env:
+        TUYA_ACCESS_ID: ${{ secrets.TUYA_ACCESS_ID }}
+        TUYA_ACCESS_SECRET: ${{ secrets.TUYA_ACCESS_SECRET }}
+        TUYA_DEVICE_ID: ${{ secrets.TUYA_DEVICE_ID }}
+      run: python monitor.py
