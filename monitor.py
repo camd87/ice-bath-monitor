@@ -5,8 +5,8 @@ from datetime import datetime
 import pytz
 
 # --- CONFIGURATION ---
-ACCESS_ID = os.environ.get("8scq7j7aav4ekjhsaecp")
-ACCESS_SECRET = os.environ.get("16d1768eb85147e4b0823a963b613ecd")
+ACCESS_ID = os.environ.get("TUYA_ACCESS_ID")
+ACCESS_SECRET = os.environ.get("TUYA_ACCESS_SECRET")
 API_ENDPOINT = "https://openapi.tuyaeu.com" 
 NTFY_TOPIC = "escape_bathhouse_alerts" 
 
