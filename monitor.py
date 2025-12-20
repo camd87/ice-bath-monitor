@@ -38,9 +38,9 @@ def should_run_check():
     if day == 4:
         return 7 <= hour < 20
 
-    # Saturday (5): 7am - 9pm (21:00)
+    # Saturday (5): 7am - 8pm (20:00)
     if day == 5:
-        return 7 <= hour < 21
+        return 7 <= hour < 20
 
     return False
 
