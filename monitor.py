@@ -24,10 +24,22 @@ def should_run_check():
     """Checks if we are within the business monitoring hours (Sydney Time)."""
     tz = pytz.timezone('Australia/Sydney')
     now = datetime.now(tz)
+    
+    # --- 🎄 HOLIDAY KILL SWITCH 🎄 ---
+    # Add any dates here where you want the system to stay silent (Day-Month)
+    HOLIDAYS = ["25-12", "26-12", "01-01"] 
+    
+    current_date_str = now.strftime("%d-%m")
+    
+    if current_date_str in HOLIDAYS:
+        print(f"🎅 Holiday Mode ({current_date_str}): Skipping checks today.")
+        return False
+    # ---------------------------------
+
     day = now.weekday() 
     hour = now.hour
 
-    # Monday (0) -> No checks (Closed)
+    # Monday (0) -> No checks
     if day == 0: return False
 
     # Tuesday (1) to Thursday (3) AND Sunday (6): 7am - 7pm (19:00)
@@ -38,9 +50,9 @@ def should_run_check():
     if day == 4:
         return 7 <= hour < 20
 
-    # Saturday (5): 7am - 8pm (20:00)
+    # Saturday (5): 7am - 9pm (21:00)
     if day == 5:
-        return 7 <= hour < 20
+        return 7 <= hour < 21
 
     return False
 
