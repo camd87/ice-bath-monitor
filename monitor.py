@@ -27,7 +27,7 @@ def should_run_check():
     
     # --- 🎄 HOLIDAY KILL SWITCH 🎄 ---
     # Add any dates here where you want the system to stay silent (Day-Month)
-    HOLIDAYS = ["25-12", "26-12", "01-01"] 
+    HOLIDAYS = ["25-12", "26-12", "31-12", "01-01"] 
     
     current_date_str = now.strftime("%d-%m")
     
