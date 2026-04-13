@@ -17,7 +17,7 @@ DEVICES = {
 }
 
 # --- THRESHOLDS ---
-MIN_FLOW = 19.0  # L/min
+MIN_FLOW = 18.0  # L/min
 MAX_TEMP = 12.0  # Degrees Celsius
 
 def should_run_check():
