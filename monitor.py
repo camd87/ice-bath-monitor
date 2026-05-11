@@ -43,17 +43,20 @@ def should_run_check():
     if day == 0: return False
 
     # Tuesday (1) to Thursday (3) AND Sunday (6): 7am - 7pm (19:00)
-    if (1 <= day <= 3) or (day == 6):
+    if (1 <= day <= 3):
         return 7 <= hour < 19
     
     # Friday (4): 7am - 8pm (20:00)
     if day == 4:
         return 7 <= hour < 20
 
-    # Saturday (5): 7am - 8pm (20:00)
+    # Saturday (5): 7am - 6pm (18:00)
     if day == 5:
-        return 7 <= hour < 20
+        return 7 <= hour < 18
 
+    if day == 6:
+        return 8 <= hour < 18
+        
     return False
 
 def send_alert(message):
